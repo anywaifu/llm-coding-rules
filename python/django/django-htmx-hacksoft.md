@@ -1,3 +1,4 @@
+```markdown
 # Django Project Guidelines
 
 ## Core Component Responsibilities
@@ -303,3 +304,4 @@ def process_item_task(self, item_id: int, user_id: int):
     - Emphasize clean, organized HTML structure and logical HTMX attributes for maintainability and seamless integration between frontend triggers and backend view responses. Aim for a cohesive user experience despite partial page updates.
 - JavaScript (Secondary): Minimize custom JS. Use only when behavior is not feasible or overly complex with HTML/CSS/HTMX. Consider Alpine.js for small, isolated component state/behavior if needed, but prefer HTMX-driven solutions. Place JS in static files (e.g., `static/js/app.js`) and bundle/import appropriately.
 - Assets: Use Django `staticfiles` (`{% static %}`) for managing all static assets (CSS, JS, images).
+```
