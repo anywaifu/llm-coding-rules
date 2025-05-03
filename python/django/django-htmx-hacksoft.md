@@ -27,16 +27,16 @@
 # app/services/some_service.py
 from django.db import transaction
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
-from app.models import SomeModel, User # Import model with choices
+from app.models import SomeModel, User
 # ... other imports
 
-class UserService: # Example service
+class UserService:
     @staticmethod
-    def get_user_by_id(user_id: int) -> User: # Example retrieval
+    def get_user_by_id(user_id: int) -> User:
         try: return User.objects.get(pk=user_id)
         except User.DoesNotExist: raise ObjectDoesNotExist(f"User {user_id} not found.")
 
-class SomeModelService: # Example service
+class SomeModelService:
     @classmethod
     @transaction.atomic
     def create_instance(cls, user_id: int, data: dict) -> SomeModel:
@@ -89,7 +89,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.db.models import Q, F
 from django.contrib.auth.models import User
-from .base import BaseModel # Import base model
+from .base import BaseModel
 
 class SomeModel(BaseModel): # Inherit from BaseModel
     class Status(models.TextChoices):
@@ -106,26 +106,27 @@ class SomeModel(BaseModel): # Inherit from BaseModel
     # ... other fields ...
 
     class Meta:
-        # Database-level constraints
         constraints = [
             models.UniqueConstraint(fields=['name', 'user'], name='unique_name_per_user')
         ]
 
     def clean(self):
-        """ Validate internal consistency of the instance. """
+        # Minimal internal consistency check (non-relational)
+        if self.status == 'inactive' and self.name == 'active_special_item':
+             raise ValidationError("Special item cannot have inactive status.")
         super().clean()
-        if self.start_date and self.end_date and self.end_date < self.start_date:
-             raise ValidationError({'end_date': 'End date cannot be before start date.'})
-        if self.status == self.Status.ARCHIVED and self.start_date is not None:
-             raise ValidationError({'start_date': f"Status '{self.Status.ARCHIVED.label}' cannot have a start date."})
 
-    # ... QuerySet, properties, __str__ ...
+    @property
+    def display_name(self):
+        return f"{self.name} ({self.status})"
+
+    def __str__(self): return self.name
 """
 
 ## Views (`app/views.py`)
 
 - Purpose: Handle HTTP requests, view auth, call services, manage forms, render responses.
-- View Definition: Define view instances in `views.py`.
+- View Definition: Define view instances in `views.py` (e.g., `my_view = MyView.as_view()`).
 - **Form Handling (Standard Views):**
     - **Inherit from `BaseFormView`**.
     - `BaseFormView.post` handles `form.is_valid()`, calls `form_valid` in `try...except`, adds errors from `ValidationError` back to the form, and calls `form_invalid`.
@@ -133,8 +134,35 @@ class SomeModel(BaseModel): # Inherit from BaseModel
 - HTMX Views: Use `TemplateView`, call services in `get_context_data`, render partials.
 
 """python
-# common/views.py (BaseFormView definition as in v10)
-# ... BaseFormView definition ...
+# common/views.py (or similar location for base classes)
+from typing import Any
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.http import HttpRequest, HttpResponse
+from django.views import generic
+import logging
+
+logger = logging.getLogger(__name__)
+
+class BaseFormView(generic.FormView):
+    """ Base FormView to automatically handle ValidationErrors from form_valid. """
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        form = self.get_form()
+        if form.is_valid():
+            try:
+                return self.form_valid(form)
+            except ValidationError as e:
+                if hasattr(e, 'message_dict'):
+                    for field, messages in e.message_dict.items():
+                        form.add_error(field if field != '__all__' else None, messages)
+                elif hasattr(e, 'message'): form.add_error(None, e.message)
+                else: form.add_error(None, str(e))
+            except ObjectDoesNotExist:
+                 form.add_error(None, "Related data not found. Please check your input.")
+            except Exception as e:
+                 logger.exception(f"Unexpected error in form processing: {e}")
+                 form.add_error(None, "An unexpected error occurred. Please try again later.")
+        return self.form_invalid(form)
+
 
 # app/views/some_views.py
 from django.views.generic import TemplateView
@@ -158,6 +186,18 @@ class CreateSomethingView(LoginRequiredMixin, BaseFormView):
         )
         return redirect(self.get_success_url())
 
+class ItemListView(LoginRequiredMixin, TemplateView):
+    template_name = "app/partials/item_list.html" # Partial template
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['items'] = SomeModelService.get_active_models_for_user(
+            user_id=self.request.user.id
+        )
+        return context
+
+# Define view instances for urls.py
+item_list_view = ItemListView.as_view()
 create_something_view = CreateSomethingView.as_view()
 """
 
@@ -172,7 +212,7 @@ create_something_view = CreateSomethingView.as_view()
 """python
 # app/forms/some_forms.py
 from django import forms
-from app.models import SomeModel
+from app.models import SomeModel, SomeModelXYZ
 
 # Optional: Generate fields from model for efficiency
 model_input_fields = forms.fields_for_model(
