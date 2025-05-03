@@ -14,7 +14,7 @@ The format works great, and the goal here is to collect prompts with a similar s
 
 | Framework             | Technologies                     | Focus                                               | Status        | Link                                         |
 | --------------------- | -------------------------------- |-----------------------------------------------------| ------------- |----------------------------------------------|
-| Django + HTMX         | Python, Django, HTMX, Tailwind CSS | Building full-stack Django app with a service layer | ✅ Available  | [View](./python/django/django-htmx-rules.md) |
+| Django + HTMX         | Python, Django, HTMX, Tailwind CSS | Building full-stack Django app with a service layer | ✅ Available  | [View](./python/django/django-htmx-hacksoft.md) |
 | FastAPI               | Python, FastAPI                  | API development patterns                            | 🔜 Coming Soon | [View](./guidelines/coming_soon.md)          |
 | *Your Framework Here* | *Your Tech Stack*                | *Your Architectural Focus*                          | ⭐ Add Yours! | *Link Here*                                  |
 
