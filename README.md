@@ -66,6 +66,7 @@ It involves combining your expertise with LLM-assisted refinement and formatting
         6.  Within the main text content (outside of code examples and standard Markdown headings like `#`, `##`), **strictly avoid** using stylistic Markdown formatting such as bold (`**`), italics (`*`), or inline code ticks (`) for emphasis or highlighting. Use plain text for all descriptions, rules, and explanations. Standard Markdown headings (`#`, `##`, etc.) are acceptable for structure if needed.
         7.  Remember, the primary user for this refined text is an LLM that needs clear, unambiguous coding guidelines presented plainly.
         8.  BE CONCISE, OBJECTIVE. AVOID REDUNDANCY
+        9.  CODE SNIPPETS MUST BE SMALL, WITHOUT COMMENTS
         Here are the guidelines to process:
         
         ==================================
