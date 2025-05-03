@@ -2,7 +2,7 @@
 
 ## Core Component Responsibilities
 
-- Views: Handle HTTP request/response, view-level auth, orchestrate service calls, manage forms (using `BaseFormView`), render responses. Minimal logic within view methods. Get data via services.
+- Views: Handle HTTP request/response, view-level auth, orchestrate service calls, manage forms (using `FormView`), render responses. Minimal logic within view methods. Get data via services.
 - Services: Contain *all* primary business logic as class methods. Primary location for **business rule validation** and orchestration. Responsible for instantiating models, calling `instance.full_clean()` to trigger model validation, and handling persistence. The source of truth for domain operations and persistence logic.
 - Models: Define data structure, relationships, **valid states/choices (using constants/enums)**, and **database constraints (`Meta.constraints`)**.
     - `Meta.constraints` (e.g., `UniqueConstraint`, `CheckConstraint` involving simple field comparisons) provide **database-level enforcement** and represent the **ultimate source of data integrity**.
@@ -111,8 +111,7 @@ class SomeModel(BaseModel): # Inherit from BaseModel
         ]
 
     def clean(self):
-        # Minimal internal consistency check (non-relational)
-        if self.status == 'inactive' and self.name == 'active_special_item':
+        if self.status == self.Status.ARCHIVED and self.name == 'active_special_item':
              raise ValidationError("Special item cannot have inactive status.")
         super().clean()
 
@@ -128,39 +127,32 @@ class SomeModel(BaseModel): # Inherit from BaseModel
 - Purpose: Handle HTTP requests, view auth, call services, manage forms, render responses.
 - View Definition: Define view instances in `views.py` (e.g., `my_view = MyView.as_view()`).
 - **Form Handling (Standard Views):**
-    - **Inherit from `BaseFormView`**.
-    - `BaseFormView.post` handles `form.is_valid()`, calls `form_valid` in `try...except`, adds errors from `ValidationError` back to the form, and calls `form_invalid`.
+    - **Inherit from `FormView`**.
+    - `FormView.post` handles `form.is_valid()`, calls `form_valid` in `try...except ValidationError`, adds the error as a non-field error back to the form, and calls `form_invalid`.
     - Implement `form_valid` focusing *only* on the success case.
 - HTMX Views: Use `TemplateView`, call services in `get_context_data`, render partials.
 
 """python
 # common/views.py (or similar location for base classes)
 from typing import Any
-from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse
 from django.views import generic
 import logging
 
 logger = logging.getLogger(__name__)
 
-class BaseFormView(generic.FormView):
+class FormView(generic.FormView): # Renamed from BaseFormView to FormView
     """ Base FormView to automatically handle ValidationErrors from form_valid. """
+    # Replaced post method with the simpler version provided
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         form = self.get_form()
         if form.is_valid():
             try:
                 return self.form_valid(form)
-            except ValidationError as e:
-                if hasattr(e, 'message_dict'):
-                    for field, messages in e.message_dict.items():
-                        form.add_error(field if field != '__all__' else None, messages)
-                elif hasattr(e, 'message'): form.add_error(None, e.message)
-                else: form.add_error(None, str(e))
-            except ObjectDoesNotExist:
-                 form.add_error(None, "Related data not found. Please check your input.")
-            except Exception as e:
-                 logger.exception(f"Unexpected error in form processing: {e}")
-                 form.add_error(None, "An unexpected error occurred. Please try again later.")
+            except ValidationError as error:
+                form.add_error(field=None, error=error)
+        # Called if form is invalid OR form_valid raises ValidationError
         return self.form_invalid(form)
 
 
@@ -169,12 +161,12 @@ from django.views.generic import TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
-from common.views import BaseFormView # Import base view
+from common.views import FormView
 # ... other imports
 from app.forms import SomeDataForm
 from app.services import SomeModelService, UserService
 
-class CreateSomethingView(LoginRequiredMixin, BaseFormView):
+class CreateSomethingView(LoginRequiredMixin, FormView):
     template_name = "app/create_something_form.html"
     form_class = SomeDataForm
     success_url = reverse_lazy('app:list_view')
